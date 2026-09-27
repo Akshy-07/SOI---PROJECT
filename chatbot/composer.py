@@ -148,7 +148,7 @@ class ResponseComposer:
             confidence = "high"
             offer_escalation = False
             gen_status = "deterministic_db"
-            personal_res = handle_personal_query(self.db_path, student_id, sub_category)
+            personal_res = handle_personal_query(self.db_path, student_id, sub_category, question=question)
             reply_text = personal_res.get("answer", "Personal record retrieved.")
 
         # 4. Hybrid Route (Personal DB + Policy RAG; NEVER CACHED due to personal student data)

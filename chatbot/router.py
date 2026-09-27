@@ -102,28 +102,43 @@ class QuestionRouter:
                     return "hybrid", "exam_eligibility", 0.95
 
         # 4. Personal vs General Rule Checks
-        personal_pronouns = ["my", "mine", "i", "me"]
+        # Personal intent requires ownership indicators / personal pronouns or self-referential queries
+        personal_pronouns = ["my", "mine", "i", "me", "myself"]
         has_personal = any(re.search(r"\b" + p + r"\b", q_lower) for p in personal_pronouns)
 
+        # Comparative personal queries (self-referential comparisons over the student's records)
+        comparative_indicators = [
+            "which of my", "which subject has the lowest", "which subject has the highest",
+            "which subject is the lowest", "which is the highest", "which is the lowest",
+            "compare my attendance", "how many subjects are below", "which subjects are below",
+            "which subject did i score", "what is my average", "what classes do i have"
+        ]
+        is_personal_comparison = any(ci in q_lower for ci in comparative_indicators)
+
+        # Explicit institutional / policy indicators
         general_indicators = [
             "policy", "minimum", "rule", "regulations", "general", "working hours",
             "library hours", "campus", "anti-ragging", "dress code", "refund policy",
-            "hostel rules", "hod of", "principal", "how to apply for", "guidelines"
+            "hostel rules", "hod of", "principal", "how to apply for", "guidelines",
+            "mandatory", "calculated", "scaled", "surcharge", "condonation",
+            "per subject", "a student", "students", "requirement", "penalty", "due date",
+            "what happens if", "what are the", "how are", "what is the"
         ]
         has_general = any(ind in q_lower for ind in general_indicators)
 
-        if has_general and not has_personal:
-            return "general", "policy", 0.9
+        # Questions about institutional policy or rules without personal ownership are GENERAL
+        if has_general and not (has_personal or is_personal_comparison):
+            return "general", "policy", 0.95
 
-        # Personal domains
-        if has_personal or not has_general:
-            if "attendance" in q_lower or "present" in q_lower or "absent" in q_lower:
+        # Personal domains: requires actual personal intent or comparative personal question
+        if has_personal or is_personal_comparison:
+            if "attendance" in q_lower or "present" in q_lower or "absent" in q_lower or "below" in q_lower:
                 return "personal", "attendance", 0.95
-            if "mark" in q_lower or "internal" in q_lower or "score" in q_lower or "result" in q_lower:
+            if "mark" in q_lower or "internal" in q_lower or "score" in q_lower or "result" in q_lower or "highest" in q_lower or "lowest" in q_lower:
                 return "personal", "marks", 0.95
-            if "fee" in q_lower or "dues" in q_lower or "tuition" in q_lower or "paid" in q_lower:
+            if "fee" in q_lower or "dues" in q_lower or "tuition" in q_lower or "paid" in q_lower or "pay" in q_lower or "due date" in q_lower:
                 return "personal", "fees", 0.95
-            if "timetable" in q_lower or "schedule" in q_lower or "class today" in q_lower or "period" in q_lower:
+            if "timetable" in q_lower or "schedule" in q_lower or "class today" in q_lower or "period" in q_lower or "scheduled" in q_lower:
                 return "personal", "timetable", 0.95
             if "leave" in q_lower or "od" in q_lower or "on-duty" in q_lower or "permission" in q_lower:
                 return "personal", "leave", 0.95

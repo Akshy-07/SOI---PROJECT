@@ -1,24 +1,23 @@
 {
-  "benchmark_timestamp": "2026-09-27T15:54:16.041086",
+  "benchmark_timestamp": "2026-09-27T19:34:36.598130",
   "total_questions": 42,
   "metrics": {
-    "routing_accuracy_percent": 88.1,
+    "routing_accuracy_percent": 100.0,
     "retrieval_recall_at_5_percent": 100.0,
-    "mean_reciprocal_rank_mrr": 0.6792,
-    "citation_accuracy_percent": 70.0,
-    "refusal_recall_percent": 77.78,
-    "refusal_precision_percent": 87.5,
+    "mean_reciprocal_rank_mrr": 0.975,
+    "citation_accuracy_percent": 100.0,
+    "refusal_recall_percent": 100.0,
+    "refusal_precision_percent": 90.0,
     "injection_resistance_percent": 100.0,
-    "latency_p50_ms": 9.1,
-    "latency_p95_ms": 20.39
+    "latency_p50_ms": 15.56,
+    "latency_p95_ms": 24.28
   },
   "confusion_matrix": {
     "personal": {
       "personal": 11
     },
     "general": {
-      "general": 16,
-      "personal": 5
+      "general": 21
     },
     "hybrid": {
       "hybrid": 3
@@ -40,7 +39,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.07
+      "latency_ms": 13.56
     },
     {
       "id": "q02",
@@ -51,7 +50,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 8.87
+      "latency_ms": 15.76
     },
     {
       "id": "q03",
@@ -62,7 +61,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 10.71
+      "latency_ms": 10.13
     },
     {
       "id": "q04",
@@ -73,7 +72,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 8.51
+      "latency_ms": 9.03
     },
     {
       "id": "q05",
@@ -84,7 +83,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.53
+      "latency_ms": 13.44
     },
     {
       "id": "q06",
@@ -95,7 +94,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 11.14
+      "latency_ms": 10.78
     },
     {
       "id": "q07",
@@ -106,7 +105,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 9.5
+      "latency_ms": 9.18
     },
     {
       "id": "q08",
@@ -117,7 +116,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.66
+      "latency_ms": 12.0
     },
     {
       "id": "q09",
@@ -128,7 +127,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.43
+      "latency_ms": 11.13
     },
     {
       "id": "q10",
@@ -139,7 +138,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 6.61
+      "latency_ms": 11.92
     },
     {
       "id": "q11",
@@ -150,40 +149,40 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 20.48
+      "latency_ms": 29.29
     },
     {
       "id": "q12",
       "question": "What happens if a student has attendance below 65%?",
       "category": "exams",
       "expected_route": "general",
-      "actual_route": "personal",
-      "route_correct": false,
+      "actual_route": "general",
+      "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 8.31
+      "latency_ms": 26.23
     },
     {
       "id": "q13",
       "question": "What is the medical condonation fee per subject for attendance between 65% and 74%?",
       "category": "exams",
       "expected_route": "general",
-      "actual_route": "personal",
-      "route_correct": false,
+      "actual_route": "general",
+      "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.41
+      "latency_ms": 21.41
     },
     {
       "id": "q14",
       "question": "How are continuous internal assessment marks calculated and scaled?",
       "category": "exams",
       "expected_route": "general",
-      "actual_route": "personal",
-      "route_correct": false,
+      "actual_route": "general",
+      "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.33
+      "latency_ms": 21.41
     },
     {
       "id": "q15",
@@ -194,7 +193,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.7
+      "latency_ms": 20.86
     },
     {
       "id": "q16",
@@ -203,9 +202,9 @@
       "expected_route": "general",
       "actual_route": "general",
       "route_correct": true,
-      "confidence": "medium",
-      "offer_escalation": true,
-      "latency_ms": 22.08
+      "confidence": "high",
+      "offer_escalation": false,
+      "latency_ms": 21.61
     },
     {
       "id": "q17",
@@ -216,7 +215,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 17.0
+      "latency_ms": 18.06
     },
     {
       "id": "q18",
@@ -227,7 +226,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.43
+      "latency_ms": 24.28
     },
     {
       "id": "q19",
@@ -238,18 +237,18 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.75
+      "latency_ms": 16.59
     },
     {
       "id": "q20",
       "question": "What is the late fee surcharge if tuition fees are paid after the due date?",
       "category": "fees",
       "expected_route": "general",
-      "actual_route": "personal",
-      "route_correct": false,
+      "actual_route": "general",
+      "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 7.2
+      "latency_ms": 22.92
     },
     {
       "id": "q21",
@@ -260,7 +259,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.93
+      "latency_ms": 22.78
     },
     {
       "id": "q22",
@@ -271,18 +270,18 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.73
+      "latency_ms": 21.65
     },
     {
       "id": "q23",
       "question": "Is 75% attendance mandatory to sit for exams?",
       "category": "paraphrases",
       "expected_route": "general",
-      "actual_route": "personal",
-      "route_correct": false,
+      "actual_route": "general",
+      "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 6.82
+      "latency_ms": 22.76
     },
     {
       "id": "q24",
@@ -291,9 +290,9 @@
       "expected_route": "general",
       "actual_route": "general",
       "route_correct": true,
-      "confidence": "high",
-      "offer_escalation": false,
-      "latency_ms": 18.64
+      "confidence": "none",
+      "offer_escalation": true,
+      "latency_ms": 12.86
     },
     {
       "id": "q25",
@@ -304,7 +303,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 16.27
+      "latency_ms": 19.72
     },
     {
       "id": "q26",
@@ -315,7 +314,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 6.8
+      "latency_ms": 9.63
     },
     {
       "id": "q27",
@@ -326,7 +325,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 17.75
+      "latency_ms": 23.37
     },
     {
       "id": "q28",
@@ -337,7 +336,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 22.26
+      "latency_ms": 24.12
     },
     {
       "id": "q29",
@@ -348,7 +347,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 9.19
+      "latency_ms": 16.51
     },
     {
       "id": "q30",
@@ -357,9 +356,9 @@
       "expected_route": "hybrid",
       "actual_route": "hybrid",
       "route_correct": true,
-      "confidence": "medium",
-      "offer_escalation": true,
-      "latency_ms": 10.56
+      "confidence": "high",
+      "offer_escalation": false,
+      "latency_ms": 18.89
     },
     {
       "id": "q31",
@@ -370,7 +369,7 @@
       "route_correct": true,
       "confidence": "high",
       "offer_escalation": false,
-      "latency_ms": 9.0
+      "latency_ms": 13.07
     },
     {
       "id": "q32",
@@ -379,9 +378,9 @@
       "expected_route": "general",
       "actual_route": "general",
       "route_correct": true,
-      "confidence": "high",
-      "offer_escalation": false,
-      "latency_ms": 16.08
+      "confidence": "none",
+      "offer_escalation": true,
+      "latency_ms": 10.07
     },
     {
       "id": "q33",
@@ -390,9 +389,9 @@
       "expected_route": "general",
       "actual_route": "general",
       "route_correct": true,
-      "confidence": "high",
-      "offer_escalation": false,
-      "latency_ms": 16.49
+      "confidence": "none",
+      "offer_escalation": true,
+      "latency_ms": 15.73
     },
     {
       "id": "q34",
@@ -403,7 +402,7 @@
       "route_correct": true,
       "confidence": "none",
       "offer_escalation": true,
-      "latency_ms": 11.43
+      "latency_ms": 15.38
     },
     {
       "id": "q35",
@@ -414,7 +413,7 @@
       "route_correct": true,
       "confidence": "none",
       "offer_escalation": true,
-      "latency_ms": 11.15
+      "latency_ms": 16.62
     },
     {
       "id": "q36",
@@ -425,7 +424,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 7.17
+      "latency_ms": 10.63
     },
     {
       "id": "q37",
@@ -436,7 +435,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 5.89
+      "latency_ms": 5.79
     },
     {
       "id": "q38",
@@ -447,7 +446,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 6.28
+      "latency_ms": 7.45
     },
     {
       "id": "q39",
@@ -458,7 +457,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 5.63
+      "latency_ms": 6.97
     },
     {
       "id": "q40",
@@ -469,7 +468,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 6.63
+      "latency_ms": 6.71
     },
     {
       "id": "q41",
@@ -480,7 +479,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 5.86
+      "latency_ms": 7.32
     },
     {
       "id": "q42",
@@ -491,7 +490,7 @@
       "route_correct": true,
       "confidence": "n/a",
       "offer_escalation": false,
-      "latency_ms": 8.42
+      "latency_ms": 7.84
     }
   ]
 }

@@ -49,22 +49,29 @@ class SimpleBM25:
             scores[i] = score
         return scores
 
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
 class HybridRetriever:
-    """Hybrid Retriever combining Vector Index and BM25 with Reciprocal Rank Fusion."""
+    """Hybrid Retriever combining Vector Index and BM25 with Reciprocal Rank Fusion and Keyword Coverage."""
     def __init__(self, index: VectorIndex, embedding_engine: EmbeddingEngine):
         self.index = index
         self.embedding_engine = embedding_engine
 
+    def tokenize_meaningful(self, text: str) -> List[str]:
+        tokens = re.findall(r"\w+", text.lower())
+        return [t for t in tokens if t not in ENGLISH_STOP_WORDS and len(t) > 1]
+
     def tokenize(self, text: str) -> List[str]:
-        return re.findall(r"\w+", text.lower())
+        return self.tokenize_meaningful(text)
 
     def retrieve(self, query: str, top_k: int = 5, active_doc_ids: List[int] = None) -> List[Dict[str, Any]]:
         """
         Perform hybrid retrieval:
         1. Query embedding and vector search.
-        2. BM25 sparse search.
-        3. Reciprocal Rank Fusion (k=60).
-        4. Optional cross-encoder reranking.
+        2. BM25 sparse search with stop-word filtered corpus.
+        3. Term coverage and heading match scoring.
+        4. Hybrid scoring combining vector similarity, BM25, and coverage.
+        5. Optional cross-encoder reranking.
         """
         if not self.index.chunks:
             return []
@@ -76,74 +83,67 @@ class HybridRetriever:
             if os.path.exists(self.index.vectorizer_path):
                 self.embedding_engine.load_tfidf(self.index.vectorizer_path)
                 query_vec = self.embedding_engine.embed_query(query)
-        vector_results = self.index.search(query_vec, top_k=top_k * 2, active_doc_ids=active_doc_ids)
 
-        use_bm25 = os.environ.get("RAG_USE_BM25", "1") == "1"
-        if not use_bm25 or len(self.index.chunks) == 0:
-            final_chunks = []
-            for chunk, score in vector_results[:top_k]:
-                c = dict(chunk)
-                c["score"] = float(score)
-                final_chunks.append(c)
-            return final_chunks
+        v_scores_all = np.dot(self.index.vectors, query_vec) if self.index.vectors.size > 0 else np.zeros(len(self.index.chunks))
 
         # BM25 Search
-        query_tokens = self.tokenize(query)
-        bm25_corpus = [self.tokenize(c.get("text", "")) for c in self.index.chunks]
+        query_tokens = self.tokenize_meaningful(query)
+        bm25_corpus = [
+            self.tokenize_meaningful(c.get("text", "") + " " + c.get("section_title", "") + " " + c.get("document_name", ""))
+            for c in self.index.chunks
+        ]
 
         try:
             from rank_bm25 import BM25Okapi
             bm25 = BM25Okapi(bm25_corpus)
-            bm25_scores = bm25.get_scores(query_tokens)
+            b_scores_all = bm25.get_scores(query_tokens)
         except Exception:
             bm25 = SimpleBM25(bm25_corpus)
-            bm25_scores = bm25.get_scores(query_tokens)
+            b_scores_all = bm25.get_scores(query_tokens)
 
-        # Filter BM25 results by active_doc_ids
-        bm25_ranked = []
-        for idx, score in enumerate(bm25_scores):
-            chunk = self.index.chunks[idx]
+        # Normalize scores
+        max_v = max(v_scores_all) if len(v_scores_all) > 0 and max(v_scores_all) > 0 else 1.0
+        max_b = max(b_scores_all) if len(b_scores_all) > 0 and max(b_scores_all) > 0 else 1.0
+
+        q_kw_set = set(query_tokens)
+
+        ranked_candidates = []
+        for idx, chunk in enumerate(self.index.chunks):
             doc_id = chunk.get("doc_id")
             if active_doc_ids is not None and doc_id is not None and doc_id not in active_doc_ids:
                 continue
-            bm25_ranked.append((chunk, float(score)))
 
-        bm25_ranked.sort(key=lambda x: x[1], reverse=True)
-        bm25_ranked = bm25_ranked[:top_k * 2]
+            v_raw = float(v_scores_all[idx]) if idx < len(v_scores_all) else 0.0
+            b_raw = float(b_scores_all[idx]) if idx < len(b_scores_all) else 0.0
 
-        # Reciprocal Rank Fusion (RRF with k=60)
-        K_RRF = 60
-        rrf_scores = defaultdict(float)
-        chunk_map = {}
+            norm_v = max(0.0, v_raw / max_v)
+            norm_b = max(0.0, b_raw / max_b)
 
-        for rank, (chunk, v_score) in enumerate(vector_results):
-            if v_score <= 0.0:
-                continue
-            cid = chunk.get("chunk_id", str(id(chunk)))
-            rrf_scores[cid] += 1.0 / (K_RRF + rank + 1)
-            chunk_map[cid] = (chunk, v_score)
+            chunk_words = set(bm25_corpus[idx])
+            kw_coverage = len(q_kw_set & chunk_words) / max(1, len(q_kw_set))
 
-        for rank, (chunk, b_score) in enumerate(bm25_ranked):
-            if b_score <= 0.0:
-                continue
-            cid = chunk.get("chunk_id", str(id(chunk)))
-            rrf_scores[cid] += 1.0 / (K_RRF + rank + 1)
-            if cid not in chunk_map:
-                chunk_map[cid] = (chunk, 0.0)
+            title_words = set(self.tokenize_meaningful(chunk.get("section_title", "") + " " + chunk.get("document_name", "")))
+            title_coverage = len(q_kw_set & title_words) / max(1, len(q_kw_set))
 
-        if not rrf_scores:
+            # Penalty for ultra-short chunks (< 12 words) so isolated titles don't overpower content
+            chunk_word_count = len(chunk.get("text", "").split())
+            len_penalty = 0.75 if chunk_word_count < 12 else 1.0
+
+            hybrid_score = ((0.55 * norm_v) + (0.35 * norm_b) + (0.15 * kw_coverage) + (0.10 * title_coverage)) * len_penalty
+
+            c = dict(chunk)
+            c["score"] = v_raw
+            c["hybrid_score"] = float(hybrid_score)
+            c["kw_coverage"] = float(kw_coverage)
+            c["bm25_score"] = b_raw
+            ranked_candidates.append(c)
+
+        if not ranked_candidates:
             return []
 
-        # Sort by combined RRF score
-        sorted_rrf = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-
-        final_chunks = []
-        for cid, rrf_score in sorted_rrf[:top_k]:
-            chunk, v_score = chunk_map[cid]
-            c = dict(chunk)
-            c["score"] = float(v_score)
-            c["rrf_score"] = float(rrf_score)
-            final_chunks.append(c)
+        # Sort descending by hybrid_score
+        ranked_candidates.sort(key=lambda x: x["hybrid_score"], reverse=True)
+        final_chunks = ranked_candidates[:top_k]
 
         # Optional Reranker (behind RAG_USE_RERANKER)
         if os.environ.get("RAG_USE_RERANKER", "0") == "1":
@@ -156,6 +156,6 @@ class HybridRetriever:
                     final_chunks[idx]["score"] = float(r_score)
                 final_chunks.sort(key=lambda x: x["score"], reverse=True)
             except Exception as e:
-                logger.warning(f"Cross-encoder reranker unavailable ({e}). Using RRF ordering.")
+                logger.warning(f"Cross-encoder reranker unavailable ({e}). Using hybrid ordering.")
 
         return final_chunks

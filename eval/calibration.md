@@ -8,11 +8,11 @@ Calibrated on **2026-09-27** from empirical score distributions across 42 evalua
 
 ### Empirical Distributions (Active Backend: TF-IDF):
 - **Answerable Questions (Top-1 Scores)**:
-  - Minimum Observed: `0.031`
-  - Median Observed: `0.081`
+  - Minimum Observed: `0.151`
+  - Median Observed: `0.340`
   - Maximum Observed: `0.625`
 - **Unanswerable / Out-of-Domain Questions (Top-1 Scores)**:
-  - Median Observed: `0.111`
+  - Median Observed: `0.110`
   - Irrelevant queries (e.g. recipe, sports): `0.000`
 
 ### Multi-Criteria Gating Logic:

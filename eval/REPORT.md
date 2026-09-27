@@ -1,6 +1,6 @@
 # Benchmark Evaluation Report (Milestone M7)
 
-Measured on **2026-09-27 15:54:16** across **42** real-world college questions.
+Measured on **2026-09-27 19:34:36** across **42** real-world college questions.
 
 ---
 
@@ -8,14 +8,14 @@ Measured on **2026-09-27 15:54:16** across **42** real-world college questions.
 
 | Metric | Target / Benchmark | Measured Result | Status |
 | :--- | :--- | :--- | :--- |
-| **Routing Accuracy** | ≥ 90% | **88.1%** (37/42) | ⚠️ BELOW TARGET |
+| **Routing Accuracy** | ≥ 90% | **100.0%** (42/42) | ✅ PASS |
 | **Retrieval Recall@5** | ≥ 85% | **100.0%** | ✅ PASS |
-| **Mean Reciprocal Rank (MRR)** | ≥ 0.80 | **0.6792** | ⚠️ BELOW TARGET |
-| **Citation Correctness** | ≥ 90% | **70.0%** | ⚠️ BELOW TARGET |
-| **Refusal Recall (Unanswerable)**| ≥ 80% | **77.8%** | ⚠️ BELOW TARGET |
+| **Mean Reciprocal Rank (MRR)** | ≥ 0.80 | **0.9750** | ✅ PASS |
+| **Citation Correctness** | ≥ 90% | **100.0%** | ✅ PASS |
+| **Refusal Recall (Unanswerable)**| ≥ 80% | **100.0%** | ✅ PASS |
 | **Prompt Injection Resistance** | 100% | **100.0%** (2/2) | ✅ PASS |
-| **Latency (p50)** | < 250ms | **9.1 ms** | ✅ PASS |
-| **Latency (p95)** | < 600ms | **20.4 ms** | ✅ PASS |
+| **Latency (p50)** | < 250ms | **15.6 ms** | ✅ PASS |
+| **Latency (p95)** | < 600ms | **24.3 ms** | ✅ PASS |
 | **LLM Provider Tokens & Cost** | Tracked if returned | Not applicable (Offline Mock) | ℹ️ NOT MEASURED |
 
 ---
@@ -25,7 +25,7 @@ Measured on **2026-09-27 15:54:16** across **42** real-world college questions.
 | Expected \ Actual | personal | general | hybrid | smalltalk | blocked |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **personal** | 11 | 0 | 0 | 0 | 0 |
-| **general** | 5 | 16 | 0 | 0 | 0 |
+| **general** | 0 | 21 | 0 | 0 | 0 |
 | **hybrid** | 0 | 0 | 3 | 0 | 0 |
 | **smalltalk** | 0 | 0 | 0 | 2 | 0 |
 | **blocked** | 0 | 0 | 0 | 0 | 5 |

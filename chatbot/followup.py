@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 FOLLOWUP_PREFIXES = (
     "and ", "and what ", "and how ", "what about ", "how about ", "also ",
     "for ", "in ", "at ", "on ", "is it ", "can i ", "does it ", "what if ",
-    "and what is ", "and for "
+    "and what is ", "and for ", "which is ", "which subject is "
 )
 
 FOLLOWUP_PRONOUNS = ("that", "this", "it", "them", "these", "those")
@@ -23,6 +23,14 @@ def is_followup_query(query: str) -> bool:
         if q_lower.startswith(prefix):
             return True
 
+    # Comparative elliptical queries e.g. "which subject is the lowest?", "which is the highest?"
+    if re.search(r"^(which|what)\s+(subject\s+)?(is\s+)?(the\s+)?(lowest|highest|best|worst|minimum|maximum|least)", q_lower):
+        return True
+
+    # Due date / deadline reference e.g. "when is it due?", "when is the deadline?"
+    if re.search(r"\bwhen\s+is\s+(it|the\s+deadline|the\s+due\s+date|that)\b", q_lower):
+        return True
+
     # Contains reference pronouns in short queries
     tokens = q_lower.split()
     if len(tokens) <= 6:
@@ -31,7 +39,7 @@ def is_followup_query(query: str) -> bool:
 
     # Very short fragment without verb/subject (e.g. "for semester 2?", "in dsp?")
     if len(tokens) <= 4 and ("?" in query or len(tokens) <= 3):
-        if not any(w in tokens for w in ["what", "who", "where", "when", "why", "how", "show", "tell"]):
+        if not any(w in tokens for w in ["who", "where", "why", "how"]):
             return True
 
     return False
@@ -61,9 +69,34 @@ def rewrite_query_deterministic(query: str, history: List[Dict[str, Any]]) -> st
 
     q_clean = query.strip()
     q_lower = q_clean.lower()
+    prev_lower = prev_query.lower()
 
     # Remove trailing question mark for composition
     prev_base = prev_query.rstrip("?.! ")
+
+    # Pattern A: Contextual domain comparative follow-ups
+    # 1. Previous query was attendance
+    if "attendance" in prev_lower or last_turn.get("route") == "personal" and "attendance" in last_turn.get("sub_category", ""):
+        if any(w in q_lower for w in ["lowest", "least", "minimum", "shortage"]):
+            return "Which of my subjects has the lowest attendance?"
+        if any(w in q_lower for w in ["highest", "best", "maximum", "top"]):
+            return "Which of my subjects has the highest attendance?"
+        if "below" in q_lower:
+            return f"Which of my subjects are below attendance {q_clean}"
+
+    # 2. Previous query was marks
+    if "mark" in prev_lower or "score" in prev_lower or last_turn.get("route") == "personal" and "marks" in last_turn.get("sub_category", ""):
+        if any(w in q_lower for w in ["highest", "best", "maximum", "top"]):
+            return "Which subject has my highest marks?"
+        if any(w in q_lower for w in ["lowest", "least", "minimum"]):
+            return "Which subject has my lowest marks?"
+
+    # 3. Previous query was fee
+    if "fee" in prev_lower or "due" in prev_lower or last_turn.get("route") == "personal" and "fees" in last_turn.get("sub_category", ""):
+        if any(w in q_lower for w in ["when", "due date", "deadline"]):
+            return "When is my fee payment due date?"
+        if any(w in q_lower for w in ["how much", "balance", "amount"]):
+            return "How much college fee do I have due?"
 
     # Pattern 1: "and for <X>?" or "for <X>?" or "in <X>?" or "at <X>?"
     # Example: "What is the attendance requirement?" + "and for semester 2?"
@@ -90,7 +123,6 @@ def rewrite_query_deterministic(query: str, history: List[Dict[str, Any]]) -> st
             return f"{prev_base} {prep} {target}" + ("?" if not target.endswith("?") else "")
 
     # Pattern 2: "what about <subject/topic>?"
-    # e.g. "Show my attendance in DSP" + "what about VLSI?" -> "Show my attendance in VLSI?"
     tokens = q_clean.rstrip("?").split()
     if len(tokens) <= 3:
         # Short topic substitution
@@ -102,8 +134,6 @@ def rewrite_query_deterministic(query: str, history: List[Dict[str, Any]]) -> st
                 return rewritten + "?"
 
     # Pattern 3: Pronoun reference "after that", "for that", "about it"
-    # e.g. "What about the hostel gate timings?" + "and what is the late fine after that?"
-    # -> "what is the late fine after the hostel gate timings?"
     if any(p in q_lower for p in ["after that", "for that", "about it", "of that"]):
         topic_phrase = re.sub(r'^(what\s+is\s+|what\s+are\s+|what\s+about\s+|show\s+|tell\s+me\s+about\s+)', '', prev_base, flags=re.IGNORECASE).strip()
         rewritten = re.sub(r'\b(after\s+that|for\s+that|about\s+it|of\s+that)\b', f"for {topic_phrase}", q_clean, flags=re.IGNORECASE)

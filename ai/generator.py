@@ -14,12 +14,20 @@ Your instructions:
 4. Never assume, extrapolate, or use outside knowledge.
 5. Be concise, respectful, and authoritative."""
 
-def compute_confidence(scores: List[float], backend: str = "tfidf") -> str:
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+def compute_confidence(
+    scores: List[float],
+    backend: str = "tfidf",
+    query: str = "",
+    retrieved_chunks: List[Dict[str, Any]] = None
+) -> str:
     """
-    Compute confidence score based on top score, gap, and count exceeding minimum.
-    Thresholds are backend-specific (Fix F3). Enforces MIN <= MED <= HIGH ordering.
+    Compute confidence score based on top score, gap, count exceeding minimum,
+    meaningful token coverage, and chunk substantive content.
+    Enforces MIN <= MED <= HIGH ordering and blocks false confidence on heading-only/single-word matches.
     """
-    if not scores:
+    if not scores or not retrieved_chunks:
         return "none"
 
     sorted_scores = sorted(scores, reverse=True)
@@ -45,6 +53,29 @@ def compute_confidence(scores: List[float], backend: str = "tfidf") -> str:
     if top1 < min_thresh:
         return "none"
 
+    # Robust query term coverage and heading check (Section 3 M4)
+    if query and retrieved_chunks:
+        generic_campus_words = {
+            "campus", "college", "semester", "rules", "rule", "regulations", "regulation",
+            "student", "students", "academic", "department", "official", "guideline", "guidelines"
+        }
+        q_tokens = [t for t in re.findall(r"\w+", query.lower()) if t not in ENGLISH_STOP_WORDS and len(t) > 2]
+        if q_tokens:
+            top_chunk = retrieved_chunks[0]
+            top_text = (top_chunk.get("text", "") + " " + top_chunk.get("section_title", "")).lower()
+            top_words_set = set(re.findall(r"\w+", top_text))
+            matched_kws = set(q_tokens) & top_words_set
+
+            # If no meaningful terms matched, or all matched terms are generic campus background words:
+            # (e.g. "semester 8 quantum computing" only matching "semester", or "campus flight training" only matching "campus")
+            if not matched_kws or matched_kws.issubset(generic_campus_words):
+                return "none"
+
+            # Heading-only match without substantive evidence
+            top_word_count = len(top_chunk.get("text", "").split())
+            if top_word_count < 12 and len(matched_kws) < 3:
+                return "none"
+
     chunks_over_min = sum(1 for s in sorted_scores if s >= min_thresh)
 
     if top1 >= high_thresh and (gap >= 0.02 or chunks_over_min >= 2):
@@ -63,12 +94,24 @@ def generate_grounded_answer(question: str, retrieved_chunks: List[Dict[str, Any
         dict with answer, confidence, sources, offer_escalation, generation_status
     """
     scores = [c.get("score", 0.0) for c in retrieved_chunks]
-    confidence = compute_confidence(scores, backend=backend)
+    confidence = compute_confidence(scores, backend=backend, query=question, retrieved_chunks=retrieved_chunks)
+
+    # Pick the most substantive chunk supporting the answer (skipping empty/heading-only chunks for extractive answers)
+    supporting_chunk = None
+    if retrieved_chunks:
+        for c in retrieved_chunks:
+            # Prefer chunks with >= 15 words
+            if len(c.get("text", "").split()) >= 15:
+                supporting_chunk = c
+                break
+        if not supporting_chunk:
+            supporting_chunk = retrieved_chunks[0]
 
     # Format sources (Phase 4)
     sources = []
     seen_sources = set()
-    for c in retrieved_chunks[:3]:
+    ordered_chunks = [supporting_chunk] + [c for c in retrieved_chunks if c != supporting_chunk] if supporting_chunk else retrieved_chunks
+    for c in ordered_chunks[:3]:
         doc_name = c.get("document_name", "Official Document")
         page = c.get("page")
         version = c.get("version", "1.0")
@@ -129,15 +172,16 @@ def generate_grounded_answer(question: str, retrieved_chunks: List[Dict[str, Any
     except Exception as e:
         logger.info(f"LLM generation unavailable ({e}). Gracefully degrading to extractive answer.")
         # Extractive fallback mode (Section 13 Graceful degradation ladder)
-        top_chunk = retrieved_chunks[0]
-        extractive_text = top_chunk.get("text", "").strip()
-        # Truncate clean excerpt if very long
+        target_chunk = supporting_chunk or retrieved_chunks[0]
+        extractive_text = target_chunk.get("text", "").strip()
+        
+        # Clean excerpt
         if len(extractive_text) > 400:
             sentences = extractive_text.split(". ")
             extractive_text = ". ".join(sentences[:3]) + "."
 
-        doc_name = top_chunk.get("document_name", "Official Policy")
-        page_info = f" (Page {top_chunk['page']})" if top_chunk.get("page") else ""
+        doc_name = target_chunk.get("document_name", "Official Policy")
+        page_info = f" (Page {target_chunk['page']})" if target_chunk.get("page") else ""
 
         answer_text = f"According to {doc_name}{page_info}:\n\n\"{extractive_text}\""
 
