@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Smart College ERP{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 3rem auto; text-align: center;">
+  <div class="card">
+    <h2 style="color: var(--danger); margin-bottom: 0.5rem;">{{ error_title or 'An Error Occurred' }}</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+      {{ error_message or 'The requested resource could not be found or an unexpected error occurred.' }}
+    </p>
+    {% if request_id %}
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+        Reference Request ID: <code>{{ request_id }}</code>
+      </p>
+    {% endif %}
+    <a href="{{ url_for('index') }}" class="btn btn-primary">Return to Home</a>
+  </div>
+</div>
+{% endblock %}

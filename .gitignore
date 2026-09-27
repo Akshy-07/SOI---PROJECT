@@ -1,0 +1,25 @@
+# Environment and secrets
+.env
+
+# RAG Index
+rag_index/
+
+# Backups
+backups/
+
+# Uploaded documents
+static/uploads/kb_docs/*
+!static/uploads/kb_docs/.gitkeep
+
+# Python cache and testing
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/

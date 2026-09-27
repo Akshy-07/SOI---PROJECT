@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: smart_college_assistant
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=production-secure-college-erp-secret
+      - FLASK_DEBUG=0
+      - LLM_PROVIDER=mock
+      - EMBEDDING_BACKEND=tfidf
+      - MAX_CHAT_CHARS=500
+      - MAX_UPLOAD_MB=15
+      - CHAT_RATE_LIMIT=20/minute
+    volumes:
+      - ./database.db:/app/database.db
+      - ./static/uploads/kb_docs:/app/static/uploads/kb_docs
+      - ./rag_index:/app/rag_index
+      - ./backups:/app/backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

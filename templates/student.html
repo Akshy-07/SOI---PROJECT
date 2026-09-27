@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - Smart College ERP{% endblock %}
+
+{% block content %}
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="showSection('overview')">Profile Overview</button>
+  <button class="tab-btn" onclick="showSection('attendance')">Attendance</button>
+  <button class="tab-btn" onclick="showSection('marks')">Internal Marks</button>
+  <button class="tab-btn" onclick="showSection('fees')">Fees</button>
+  <button class="tab-btn" onclick="showSection('timetable')">Timetable</button>
+  <button class="tab-btn" onclick="showSection('leave')">Leave / OD</button>
+  <button class="tab-btn" onclick="showSection('chatbot')">Smart Assistant 🤖</button>
+  <button class="tab-btn" onclick="showSection('my-queries')">My Submitted Questions</button>
+</div>
+
+<!-- Section: Overview -->
+<div id="overview" class="tab-content active">
+  <div class="card">
+    <h2>Welcome, {{ student.name }}</h2>
+    <div class="grid-3" style="margin-top: 1rem;">
+      <div><strong>Register Number:</strong> {{ student.reg_no }}</div>
+      <div><strong>Department:</strong> {{ student.dept }}</div>
+      <div><strong>Semester:</strong> {{ student.semester }}</div>
+      <div><strong>Email:</strong> {{ student.email }}</div>
+      <div><strong>Phone:</strong> {{ student.phone }}</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3>Attendance Summary</h3>
+      <p style="font-size: 1.8rem; font-weight: 700; color: {% if avg_attendance >= 75 %}var(--success){% else %}var(--danger){% endif %};">
+        {{ "%.1f"|format(avg_attendance) }}%
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem;">
+        {% if avg_attendance >= 75 %}Eligible for regular exams{% else %}Shortage of attendance!{% endif %}
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Fee Status</h3>
+      <p style="font-size: 1.8rem; font-weight: 700; color: {% if fee and fee.due_fee > 0 %}var(--warning){% else %}var(--success){% endif %};">
+        ₹{{ fee.due_fee if fee else 0 }}
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem;">
+        Status: <span class="badge {% if fee and fee.status=='Paid' %}badge-success{% else %}badge-warning{% endif %}">{{ fee.status if fee else 'N/A' }}</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Pending Leave/OD</h3>
+      <p style="font-size: 1.8rem; font-weight: 700; color: var(--info);">
+        {{ pending_leaves|length }}
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem;">Requests awaiting review</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Attendance -->
+<div id="attendance" class="tab-content">
+  <div class="card">
+    <h2>Subject Attendance</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Attended</th>
+          <th>Total Classes</th>
+          <th>Percentage</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in attendance %}
+        <tr>
+          <td>{{ a.subject }}</td>
+          <td>{{ a.attended_classes }}</td>
+          <td>{{ a.total_classes }}</td>
+          <td><strong>{{ "%.1f"|format(a.percentage) }}%</strong></td>
+          <td>
+            {% if a.percentage >= 75 %}
+              <span class="badge badge-success">Good</span>
+            {% else %}
+              <span class="badge badge-danger">Low (<75%)</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: Marks -->
+<div id="marks" class="tab-content">
+  <div class="card">
+    <h2>Internal Assessment Marks</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Internal 1 (50)</th>
+          <th>Internal 2 (50)</th>
+          <th>Assignment (10)</th>
+          <th>Total (110)</th>
+          <th>Percentage</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in marks %}
+        <tr>
+          <td>{{ m.subject }}</td>
+          <td>{{ m.internal1 }}</td>
+          <td>{{ m.internal2 }}</td>
+          <td>{{ m.assignment }}</td>
+          <td><strong>{{ m.total }}</strong></td>
+          <td>{{ "%.1f"|format((m.total / 110.0) * 100) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: Fees -->
+<div id="fees" class="tab-content">
+  <div class="card">
+    <h2>Fee Details</h2>
+    {% if fee %}
+    <div class="grid-2" style="margin-top: 1rem;">
+      <div>
+        <p><strong>Total Fee:</strong> ₹{{ fee.total_fee }}</p>
+        <p style="margin-top: 0.5rem;"><strong>Paid Fee:</strong> ₹{{ fee.paid_fee }}</p>
+        <p style="margin-top: 0.5rem;"><strong>Due Fee:</strong> ₹{{ fee.due_fee }}</p>
+      </div>
+      <div>
+        <p><strong>Due Date:</strong> {{ fee.due_date }}</p>
+        <p style="margin-top: 0.5rem;"><strong>Payment Status:</strong> 
+          <span class="badge {% if fee.status=='Paid' %}badge-success{% else %}badge-warning{% endif %}">{{ fee.status }}</span>
+        </p>
+      </div>
+    </div>
+    {% else %}
+    <p>No fee record found.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Section: Timetable -->
+<div id="timetable" class="tab-content">
+  <div class="card">
+    <h2>Weekly Schedule (Semester {{ student.semester }} - {{ student.dept }})</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Period 1</th>
+          <th>Period 2</th>
+          <th>Period 3</th>
+          <th>Period 4</th>
+          <th>Period 5</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in timetable %}
+        <tr>
+          <td><strong>{{ t.day_of_week }}</strong></td>
+          <td>{{ t.period_1 }}</td>
+          <td>{{ t.period_2 }}</td>
+          <td>{{ t.period_3 }}</td>
+          <td>{{ t.period_4 }}</td>
+          <td>{{ t.period_5 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: Leave/OD -->
+<div id="leave" class="tab-content">
+  <div class="grid-2">
+    <div class="card">
+      <h3>Apply for Leave / On-Duty (OD)</h3>
+      <form method="POST" action="{{ url_for('student_apply_leave') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+        <div class="form-group">
+          <label>Request Type</label>
+          <select name="req_type" class="form-control" required>
+            <option value="Leave">Leave (Personal / Medical)</option>
+            <option value="On-Duty (OD)">On-Duty (OD - Symposium, Sports, Project)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>From Date</label>
+          <input type="date" name="from_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>To Date</label>
+          <input type="date" name="to_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <textarea name="reason" class="form-control" rows="3" required placeholder="Explain reason..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Application</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Application History</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Dates</th>
+            <th>Status</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in leaves %}
+          <tr>
+            <td>{{ l.req_type }}</td>
+            <td>{{ l.from_date }} to {{ l.to_date }}</td>
+            <td>
+              <span class="badge {% if l.status=='Approved' %}badge-success{% elif l.status=='Rejected' %}badge-danger{% else %}badge-warning{% endif %}">
+                {{ l.status }}
+              </span>
+            </td>
+            <td><small>{{ l.reason }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Chatbot -->
+<div id="chatbot" class="tab-content">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <h2>Smart College Assistant</h2>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Hybrid DB + RAG grounded assistant</span>
+    </div>
+
+    <div class="chat-container">
+      <div id="chatMessages" class="chat-messages">
+        <div class="chat-bubble bot">
+          Hello <strong>{{ student.name }}</strong>! I am your Smart College Assistant.
+          <br>You can ask me personal questions like <em>"What is my attendance?"</em> or <em>"What are my marks?"</em>,
+          or college policy questions like <em>"What is the minimum attendance requirement for semester exams?"</em>.
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" class="form-control" placeholder="Type your question here..." onkeypress="handleKeyPress(event)" maxlength="500">
+        <button id="sendBtn" class="btn btn-primary" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section: My Submitted Questions (Escalations) -->
+<div id="my-queries" class="tab-content">
+  <div class="card">
+    <h2>My Submitted Questions to Staff</h2>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+      Questions you escalated when the chatbot could not find reliable information.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Question</th>
+          <th>Status</th>
+          <th>Staff Response</th>
+        </tr>
+      </thead>
+      <tbody id="submittedQueriesTable">
+        {% for q in student_queries %}
+        <tr>
+          <td>{{ q.created_at }}</td>
+          <td>{{ q.question }}</td>
+          <td>
+            <span class="badge {% if q.status=='resolved' %}badge-success{% elif q.status=='in_review' %}badge-info{% else %}badge-warning{% endif %}">
+              {{ q.status }}
+            </span>
+          </td>
+          <td>
+            {% if q.staff_response %}
+              <strong>{{ q.staff_response }}</strong>
+              {% if q.status == 'resolved' %}
+                <span class="badge badge-success" style="margin-left: 0.5rem;">New Response</span>
+              {% endif %}
+            {% else %}
+              <span style="color: var(--text-muted); font-style: italic;">Awaiting staff review</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" style="text-align: center; color: var(--text-muted);">No submitted questions yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSection(sectionId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+  const target = document.getElementById(sectionId);
+  if (target) {
+    target.classList.add('active');
+  }
+
+  const buttons = document.querySelectorAll('.tab-btn');
+  buttons.forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(sectionId)) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+function handleKeyPress(e) {
+  if (e.key === 'Enter') {
+    sendMessage();
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const chatMessages = document.getElementById('chatMessages');
+  const question = input.value.trim();
+  if (!question) return;
+
+  // Append user message
+  const userBubble = document.createElement('div');
+  userBubble.className = 'chat-bubble user';
+  userBubble.textContent = question;
+  chatMessages.appendChild(userBubble);
+  input.value = '';
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Add loading indicator
+  const loadingBubble = document.createElement('div');
+  loadingBubble.className = 'chat-bubble bot';
+  loadingBubble.id = 'loadingBubble';
+  loadingBubble.innerHTML = 'Thinking<span class="loading-dots"></span>';
+  chatMessages.appendChild(loadingBubble);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  sendBtn.disabled = true;
+
+  try {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ question: question, message: question })
+    });
+
+    const data = await res.json();
+    loadingBubble.remove();
+
+    const botBubble = document.createElement('div');
+    botBubble.className = 'chat-bubble bot';
+
+    // Support both old reply string and new structured contract
+    const answerText = data.answer || data.reply || (data.error || "No answer received.");
+    
+    let htmlContent = `<div>${escapeHtml(answerText)}</div>`;
+
+    // Medium confidence warning
+    if (data.confidence === 'medium') {
+      htmlContent += `<div class="verify-notice">⚠️ Please verify this information with department officials as confidence is moderate.</div>`;
+    }
+
+    // Sources block
+    if (data.sources && data.sources.length > 0) {
+      let sourceItems = data.sources.map(s => {
+        let p = s.page ? ` (Page ${s.page})` : '';
+        let v = s.doc_version ? ` [v${s.doc_version}]` : '';
+        return `• ${escapeHtml(s.document_name)}${p}${v}`;
+      }).join('<br>');
+      htmlContent += `<div class="source-block"><strong>Source(s):</strong><br>${sourceItems}</div>`;
+    }
+
+    // Metadata bar: Route & Confidence Badge
+    if (data.route || data.confidence) {
+      let confBadgeClass = 'badge-secondary';
+      if (data.confidence === 'high') confBadgeClass = 'badge-success';
+      else if (data.confidence === 'medium') confBadgeClass = 'badge-warning';
+      else if (data.confidence === 'low' || data.confidence === 'none') confBadgeClass = 'badge-danger';
+
+      htmlContent += `
+        <div class="chat-meta">
+          ${data.route ? `<span class="badge badge-info">${escapeHtml(data.route)}</span>` : ''}
+          ${data.confidence && data.confidence !== 'n/a' ? `<span class="badge ${confBadgeClass}">Confidence: ${escapeHtml(data.confidence)}</span>` : ''}
+          ${data.latency_ms ? `<span style="color: var(--text-muted); font-size: 0.75rem;">${data.latency_ms}ms</span>` : ''}
+        </div>
+      `;
+    }
+
+    // Escalation Button if low/none confidence or explicitly offered
+    if (data.offer_escalation || data.confidence === 'low' || data.confidence === 'none') {
+      htmlContent += `
+        <div style="margin-top: 0.6rem;">
+          <button class="btn btn-sm btn-primary" onclick="escalateQuery('${data.request_id || ''}')">
+            Submit this question to staff
+          </button>
+        </div>
+      `;
+    }
+
+    // Thumbs Up / Down feedback buttons
+    if (data.request_id) {
+      htmlContent += `
+        <div class="feedback-actions" id="feedback-${data.request_id}">
+          <button class="btn-icon" onclick="sendFeedback('${data.request_id}', 1)" title="Helpful">👍</button>
+          <button class="btn-icon" onclick="sendFeedback('${data.request_id}', -1)" title="Not helpful">👎</button>
+        </div>
+      `;
+    }
+
+    botBubble.innerHTML = htmlContent;
+    chatMessages.appendChild(botBubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  } catch (err) {
+    if (document.getElementById('loadingBubble')) {
+      document.getElementById('loadingBubble').remove();
+    }
+    const errBubble = document.createElement('div');
+    errBubble.className = 'chat-bubble bot';
+    errBubble.style.color = 'var(--danger)';
+    errBubble.textContent = 'Error connecting to chatbot server. Please try again.';
+    chatMessages.appendChild(errBubble);
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+async function escalateQuery(requestId) {
+  if (!requestId) {
+    alert("Cannot escalate without a valid request ID.");
+    return;
+  }
+  const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+  try {
+    const res = await fetch('/submit_unresolved_query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert("Your question has been escalated to staff. Track it under 'My Submitted Questions' tab.");
+    } else {
+      alert("Escalation failed: " + (result.error || "Unknown error"));
+    }
+  } catch (e) {
+    alert("Error submitting query to staff.");
+  }
+}
+
+async function sendFeedback(requestId, rating) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+  try {
+    const res = await fetch('/chat/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ request_id: requestId, rating: rating })
+    });
+    if (res.ok) {
+      const container = document.getElementById('feedback-' + requestId);
+      if (container) {
+        container.innerHTML = '<span style="font-size: 0.8rem; color: var(--success);">Thank you for your feedback!</span>';
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Smart College ERP{% endblock %}
+
+{% block content %}
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="showSection('students-tab')">Students Management</button>
+  <button class="tab-btn" onclick="showSection('kb-tab')">Knowledge Base</button>
+  <button class="tab-btn" onclick="showSection('faq-tab')">FAQ Approvals</button>
+  <button class="tab-btn" onclick="showSection('monitor-tab')">Escalation Monitor &amp; Gap Report</button>
+  <button class="tab-btn" onclick="showSection('audit-tab')">Audit Logs</button>
+  <button class="tab-btn" onclick="showSection('policy-tab')">Structured Policy Rules</button>
+</div>
+
+<!-- Tab 1: Students Management -->
+<div id="students-tab" class="tab-content active">
+  <div class="grid-2">
+    <div class="card">
+      <h3>Registered Students</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reg No</th>
+            <th>Name</th>
+            <th>Dept</th>
+            <th>Sem</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td><strong>{{ s.reg_no }}</strong></td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.dept }}</td>
+            <td>{{ s.semester }}</td>
+            <td>{{ s.email }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Add New Student</h3>
+      <form method="POST" action="{{ url_for('admin_add_student') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+        <div class="form-group">
+          <label>Register Number</label>
+          <input type="text" name="reg_no" class="form-control" required placeholder="e.g. 711724UEC103">
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="name" class="form-control" required placeholder="e.g. Priya M">
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <input type="text" name="dept" class="form-control" required value="ECE">
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <input type="number" name="semester" class="form-control" required value="4">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" name="email" class="form-control" placeholder="student@college.edu">
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" name="phone" class="form-control" placeholder="9876543212">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Student Record</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: Knowledge Base -->
+<div id="kb-tab" class="tab-content">
+  <div class="grid-2">
+    <div class="card">
+      <h3>Upload Knowledge Base Document</h3>
+      <form method="POST" action="{{ url_for('admin_upload_kb') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+        <div class="form-group">
+          <label>Document File (PDF, DOCX, TXT - max 15MB)</label>
+          <input type="file" name="file" class="form-control" required accept=".pdf,.docx,.txt">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Document Version</label>
+            <input type="text" name="version" class="form-control" value="1.0" required>
+          </div>
+          <div class="form-group">
+            <label>Supersedes Document (Optional)</label>
+            <select name="supersedes_id" class="form-control">
+              <option value="">-- None (New Document) --</option>
+              {% for d in documents %}
+              <option value="{{ d.id }}">{{ d.file_name }} (v{{ d.version }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Effective From</label>
+            <input type="date" name="effective_from" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Effective Until</label>
+            <input type="date" name="effective_until" class="form-control">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload &amp; Index Document</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h3>Index Status &amp; Re-indexing</h3>
+        <form method="POST" action="{{ url_for('admin_reindex_all') }}" onsubmit="return confirm('Re-index all active documents?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+          <button type="submit" class="btn btn-sm btn-secondary">Re-index All Active</button>
+        </form>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Current active backend: <strong>{{ active_backend or 'tfidf' }}</strong><br>
+        Indexed documents: <strong>{{ indexed_doc_count or 0 }}</strong> | Total chunks: <strong>{{ total_chunk_count or 0 }}</strong>
+      </p>
+      {% if index_mismatch_warning %}
+      <div class="card" style="padding: 0.75rem; background: #fef2f2; border: 1px solid #f87171; color: #b91c1c; font-size: 0.85rem;">
+        ⚠️ <strong>Re-index required:</strong> Configured embedding backend differs from the persisted index manifest.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Indexed Knowledge Documents</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>File Name</th>
+          <th>Version</th>
+          <th>Effective Window</th>
+          <th>Chunks</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in documents %}
+        <tr>
+          <td>#{{ d.id }}</td>
+          <td>
+            <strong>{{ d.file_name }}</strong><br>
+            <small style="color: var(--text-muted);">{{ d.file_type|upper }} • SHA: {{ d.file_hash[:10] }}...</small>
+          </td>
+          <td>v{{ d.version }}</td>
+          <td>
+            <small>
+              From: {{ d.effective_from or 'Always' }}<br>
+              Until: {{ d.effective_until or 'Indefinite' }}
+            </small>
+          </td>
+          <td>{{ d.chunk_count or 0 }}</td>
+          <td>
+            <span class="badge {% if d.status=='active' %}badge-success{% elif d.status=='processing' %}badge-info{% elif d.status=='needs_ocr' %}badge-warning{% else %}badge-secondary{% endif %}">
+              {{ d.status }}
+            </span>
+          </td>
+          <td style="white-space: nowrap;">
+            <form method="POST" action="{{ url_for('admin_toggle_kb', doc_id=d.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <button type="submit" class="btn btn-sm btn-secondary">
+                {{ 'Deactivate' if d.status=='active' else 'Activate' }}
+              </button>
+            </form>
+            <form method="POST" action="{{ url_for('admin_reindex_doc', doc_id=d.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <button type="submit" class="btn btn-sm btn-secondary" title="Re-index">Re-index</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin_delete_kb', doc_id=d.id) }}" style="display:inline;" onsubmit="return confirm('Delete document and all index entries?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <button type="submit" class="btn btn-sm btn-danger" title="Delete">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No documents uploaded yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 3: FAQ Approvals -->
+<div id="faq-tab" class="tab-content">
+  <div class="card">
+    <h2>Staff Resolutions Pending FAQ Promotion</h2>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+      When staff answers an escalation and marks "Promote to FAQ", approving it here indexes the verified Q&amp;A directly into the RAG knowledge base.
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Question</th>
+          <th>Staff Answer</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for faq in faqs %}
+        <tr>
+          <td>#{{ faq.id }}</td>
+          <td><strong>{{ faq.question }}</strong></td>
+          <td>{{ faq.answer }}</td>
+          <td>
+            <span class="badge {% if faq.status=='approved' %}badge-success{% elif faq.status=='draft' %}badge-warning{% else %}badge-secondary{% endif %}">
+              {{ faq.status }}
+            </span>
+          </td>
+          <td>
+            {% if faq.status == 'draft' %}
+            <form method="POST" action="{{ url_for('admin_approve_faq', faq_id=faq.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <button type="submit" class="btn btn-sm btn-success">Approve &amp; Index into KB</button>
+            </form>
+            {% else %}
+              <small style="color: var(--text-muted);">Approved by {{ faq.approved_by }}</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No FAQ proposals pending review.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 4: Escalation Monitor & Gap Report -->
+<div id="monitor-tab" class="tab-content">
+  <div class="grid-3">
+    <div class="card">
+      <h3>Open Escalations</h3>
+      <p style="font-size: 2rem; font-weight: 700; color: var(--warning);">{{ monitor.open_count or 0 }}</p>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">Awaiting staff action</p>
+    </div>
+    <div class="card">
+      <h3>Resolved Escalations</h3>
+      <p style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ monitor.resolved_count or 0 }}</p>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">Total resolved queries</p>
+    </div>
+    <div class="card">
+      <h3>Median Resolution Time</h3>
+      <p style="font-size: 2rem; font-weight: 700; color: var(--info);">{{ monitor.median_time or 'N/A' }}</p>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">From escalation to answer</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Top Knowledge-Gap Queries (Low-Confidence Chatbot Events)</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+      Aggregated from audit logs where confidence was 'low' or 'none' — indicates missing policy documents.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Topic / Question</th>
+          <th>Occurrences</th>
+          <th>Last Asked</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for gap in knowledge_gaps %}
+        <tr>
+          <td><strong>{{ gap.question }}</strong></td>
+          <td><span class="badge badge-warning">{{ gap.count }} times</span></td>
+          <td>{{ gap.last_asked }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" style="text-align: center; color: var(--text-muted);">No knowledge gap clusters detected.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 5: Audit Log Viewer -->
+<div id="audit-tab" class="tab-content">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <h2>System Audit Logs</h2>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        🔒 Personal query data minimisation: Only query types are recorded, never personal data values.
+      </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin_audit_logs') }}" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+      <select name="event_type" class="form-control" style="width: auto;">
+        <option value="">All Event Types</option>
+        <option value="chat_query" {% if filter_event=='chat_query' %}selected{% endif %}>Chat Query</option>
+        <option value="document_action" {% if filter_event=='document_action' %}selected{% endif %}>Document Action</option>
+        <option value="escalation_action" {% if filter_event=='escalation_action' %}selected{% endif %}>Escalation Action</option>
+        <option value="security_block" {% if filter_event=='security_block' %}selected{% endif %}>Security Block</option>
+      </select>
+      <button type="submit" class="btn btn-secondary">Filter</button>
+    </form>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Request ID</th>
+          <th>Role</th>
+          <th>Event</th>
+          <th>Route</th>
+          <th>Logged Content</th>
+          <th>Confidence</th>
+          <th>Latency</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in audit_logs %}
+        <tr>
+          <td><small>{{ a.ts }}</small></td>
+          <td><code style="font-size: 0.75rem;">{{ a.request_id[:8] }}...</code></td>
+          <td><span class="badge badge-secondary">{{ a.user_role }}</span></td>
+          <td>{{ a.event_type }}</td>
+          <td><span class="badge badge-info">{{ a.route or 'n/a' }}</span></td>
+          <td style="max-width: 250px; font-size: 0.82rem;">
+            <strong>Q:</strong> {{ a.question or '-' }}<br>
+            <strong>A:</strong> {{ a.answer[:80] if a.answer else '-' }}
+          </td>
+          <td>{{ a.confidence or '-' }}</td>
+          <td>{{ a.latency_ms ~ 'ms' if a.latency_ms else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align: center; color: var(--text-muted);">No audit log entries recorded.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 6: Structured Policy Rules -->
+<div id="policy-tab" class="tab-content">
+  <div class="grid-2">
+    <div class="card">
+      <h3>Configured Policy Rules</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th>Last Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in policy_rules %}
+          <tr>
+            <td><code>{{ p.key }}</code></td>
+            <td><strong>{{ p.value }}</strong></td>
+            <td>{{ p.unit }}</td>
+            <td><small>{{ p.updated_at }} by {{ p.updated_by }}</small></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--text-muted);">No policy rules configured.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Add / Update Policy Rule</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Enables deterministic hybrid eligibility verdicts (e.g. comparing student attendance against minimum attendance requirement).
+      </p>
+      <form method="POST" action="{{ url_for('admin_update_policy_rule') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+        <div class="form-group">
+          <label>Rule Key</label>
+          <input type="text" name="key" class="form-control" required placeholder="e.g. min_attendance_percent">
+        </div>
+        <div class="form-group">
+          <label>Threshold Value</label>
+          <input type="text" name="value" class="form-control" required placeholder="e.g. 75">
+        </div>
+        <div class="form-group">
+          <label>Unit</label>
+          <input type="text" name="unit" class="form-control" value="%" required placeholder="e.g. % or marks">
+        </div>
+        <button type="submit" class="btn btn-primary">Save Policy Rule</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSection(sectionId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+  const target = document.getElementById(sectionId);
+  if (target) {
+    target.classList.add('active');
+  }
+
+  const buttons = document.querySelectorAll('.tab-btn');
+  buttons.forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(sectionId)) {
+      btn.classList.add('active');
+    }
+  });
+}
+</script>
+{% endblock %}

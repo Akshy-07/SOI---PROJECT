@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard - Smart College ERP{% endblock %}
+
+{% block content %}
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="showSection('students-list')">Students Overview</button>
+  <button class="tab-btn" onclick="showSection('leave-mgmt')">Leave / OD Approvals</button>
+  <button class="tab-btn" onclick="showSection('escalated-queries')">
+    Escalated Queries Queue 
+    {% if open_queries_count > 0 %}
+      <span class="badge badge-warning" style="margin-left: 0.3rem;">{{ open_queries_count }}</span>
+    {% endif %}
+  </button>
+</div>
+
+<!-- Section: Students List -->
+<div id="students-list" class="tab-content active">
+  <div class="card">
+    <h2>Department Students (ECE - Semester 4)</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Reg No</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Overall Attendance</th>
+          <th>Fees Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td><strong>{{ s.reg_no }}</strong></td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.email }}</td>
+          <td>{{ s.phone }}</td>
+          <td>
+            <span class="badge {% if s.avg_att >= 75 %}badge-success{% else %}badge-danger{% endif %}">
+              {{ "%.1f"|format(s.avg_att) }}%
+            </span>
+          </td>
+          <td>
+            <span class="badge {% if s.fee_status=='Paid' %}badge-success{% else %}badge-warning{% endif %}">
+              {{ s.fee_status or 'N/A' }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: Leave/OD Approvals -->
+<div id="leave-mgmt" class="tab-content">
+  <div class="card">
+    <h2>Leave &amp; On-Duty (OD) Applications</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Reg No</th>
+          <th>Type</th>
+          <th>Dates</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in leaves %}
+        <tr>
+          <td><strong>{{ l.name }}</strong></td>
+          <td>{{ l.reg_no }}</td>
+          <td>{{ l.req_type }}</td>
+          <td>{{ l.from_date }} to {{ l.to_date }}</td>
+          <td>{{ l.reason }}</td>
+          <td>
+            <span class="badge {% if l.status=='Approved' %}badge-success{% elif l.status=='Rejected' %}badge-danger{% else %}badge-warning{% endif %}">
+              {{ l.status }}
+            </span>
+          </td>
+          <td>
+            {% if l.status == 'Pending' %}
+            <form method="POST" action="{{ url_for('staff_review_leave', leave_id=l.id) }}" style="display: inline-flex; gap: 0.3rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <button type="submit" name="action" value="Approved" class="btn btn-sm btn-success">Approve</button>
+              <button type="submit" name="action" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
+            </form>
+            {% else %}
+              <small style="color: var(--text-muted);">Reviewed by {{ l.reviewed_by }}</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted);">No leave requests found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: Escalated Queries Queue -->
+<div id="escalated-queries" class="tab-content">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <h2>Unresolved Student Queries Queue</h2>
+      <div style="font-size: 0.82rem; color: var(--text-muted); background: #f1f5f9; padding: 0.4rem 0.8rem; border-radius: 4px;">
+        ℹ️ Shared Staff Login: All faculty members view and resolve this shared queue.
+      </div>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+      Review and answer questions that the chatbot could not confidently answer from the knowledge base.
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Student</th>
+          <th>Date</th>
+          <th>Question</th>
+          <th>Route &amp; Confidence</th>
+          <th>Status</th>
+          <th>Resolution</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in queries %}
+        <tr>
+          <td>#{{ q.id }}</td>
+          <td><strong>{{ q.student_name }}</strong><br><small>{{ q.reg }}</small></td>
+          <td>{{ q.created_at }}</td>
+          <td style="max-width: 250px;">
+            <strong>{{ q.question }}</strong>
+            {% if q.chatbot_response %}
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem; background: #f8fafc; padding: 0.3rem; border-radius: 4px;">
+                <em>Bot said:</em> {{ q.chatbot_response[:100] }}...
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge badge-info">{{ q.route or 'general' }}</span>
+            <span class="badge badge-warning">{{ q.confidence or 'low' }}</span>
+          </td>
+          <td>
+            <span class="badge {% if q.status=='resolved' %}badge-success{% elif q.status=='in_review' %}badge-info{% elif q.status=='rejected' %}badge-danger{% else %}badge-warning{% endif %}">
+              {{ q.status }}
+            </span>
+          </td>
+          <td>
+            {% if q.status != 'resolved' %}
+            <form method="POST" action="{{ url_for('staff_resolve_query', query_id=q.id) }}" style="display: flex; flex-direction: column; gap: 0.4rem;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <textarea name="staff_response" class="form-control" rows="2" placeholder="Enter staff answer..." required style="font-size: 0.85rem;"></textarea>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                  <input type="checkbox" name="promote_to_faq" value="1"> Promote to FAQ
+                </label>
+                <button type="submit" class="btn btn-sm btn-primary">Submit Answer</button>
+              </div>
+            </form>
+            {% else %}
+              <div>
+                <strong>Answer:</strong> {{ q.staff_response }}
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                  Resolved by {{ q.reviewed_by }} at {{ q.resolved_at }}
+                </div>
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+            No unresolved queries in the queue.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSection(sectionId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+  const target = document.getElementById(sectionId);
+  if (target) {
+    target.classList.add('active');
+  }
+
+  const buttons = document.querySelectorAll('.tab-btn');
+  buttons.forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(sectionId)) {
+      btn.classList.add('active');
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{
+  "backend": "tfidf",
+  "model_name": "all-MiniLM-L6-v2",
+  "dim": 316,
+  "built_at": "2026-09-26T22:18:52.438857",
+  "chunk_count": 14,
+  "doc_ids": [
+    1
+  ]
+}
