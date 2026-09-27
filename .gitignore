@@ -23,3 +23,9 @@ build/
 # IDE files
 .vscode/
 .idea/
+
+# Eval runtime artifacts
+eval/eval_rag_index/
+eval/*.db
+verify_e2e.py
+*.zip

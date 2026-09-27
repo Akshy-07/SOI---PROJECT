@@ -71,6 +71,11 @@ class HybridRetriever:
 
         # Vector search
         query_vec = self.embedding_engine.embed_query(query)
+        if len(self.index.vectors.shape) > 1 and self.index.vectors.shape[1] != query_vec.shape[0]:
+            # Auto-realign if index vocabulary was updated by another process/thread
+            if os.path.exists(self.index.vectorizer_path):
+                self.embedding_engine.load_tfidf(self.index.vectorizer_path)
+                query_vec = self.embedding_engine.embed_query(query)
         vector_results = self.index.search(query_vec, top_k=top_k * 2, active_doc_ids=active_doc_ids)
 
         use_bm25 = os.environ.get("RAG_USE_BM25", "1") == "1"

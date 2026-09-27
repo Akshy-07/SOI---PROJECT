@@ -13,6 +13,7 @@ from flask_limiter.util import get_remote_address
 from chatbot.composer import ResponseComposer
 from rag.ingest import IngestionPipeline
 from chatbot.audit import log_audit_event
+from chatbot.followup import rewrite_query
 
 logger = logging.getLogger(__name__)
 
@@ -508,11 +509,12 @@ def admin_upload_kb():
         version=version,
         effective_from=effective_from,
         effective_until=effective_until,
-        supersedes_id=supersedes_id
+        supersedes_id=supersedes_id,
+        async_mode=True
     )
 
     if success:
-        flash(f"Document uploaded and indexed successfully (ID #{doc_id}).", "success")
+        flash(f"Document #{doc_id} ('{file.filename}') uploaded and queued for background processing.", "success")
     else:
         flash(f"Upload rejected: {msg}", "error")
 
@@ -667,13 +669,27 @@ def chat():
     student_id = session.get('student_id')
     student_reg = session.get('reg')
 
+    # Session-scoped follow-up query rewriting (Phase 6)
+    chat_history = session.get('chat_history', [])
+    provider_name = os.environ.get('LLM_PROVIDER', 'mock')
+    standalone_question = rewrite_query(question, chat_history, provider_name=provider_name)
+
     composer = get_composer()
     response_data = composer.compose_response(
-        question=question,
+        question=standalone_question,
         student_id=student_id,
         user_role='student',
         student_reg=student_reg
     )
+
+    # Maintain last 3 relevant turns in session (ZERO personal data values stored in session)
+    chat_history.append({
+        "user_query": question,
+        "rewritten_query": standalone_question,
+        "route": response_data.get("route")
+    })
+    session['chat_history'] = chat_history[-3:]
+    session.modified = True
 
     return jsonify(response_data)
 
@@ -750,13 +766,44 @@ def healthz():
     except Exception:
         pass
 
+    # Check vector index status (Phase 11)
+    index_status = "unavailable"
+    index_chunk_count = 0
+    index_version = "none"
+    try:
+        pipeline = get_pipeline()
+        if pipeline and pipeline.vector_index:
+            pipeline.vector_index.check_and_reload()
+            index_chunk_count = len(pipeline.vector_index.chunks)
+            index_version = pipeline.vector_index.get_index_version()
+            index_status = "ready" if index_chunk_count > 0 else "empty"
+    except Exception:
+        pass
+
+    # Check LLM provider configuration (zero secret exposure)
+    provider_name = os.environ.get('LLM_PROVIDER', 'mock').lower()
+    if provider_name == 'mock':
+        llm_configured = True
+    elif provider_name == 'openai':
+        llm_configured = bool(os.environ.get('OPENAI_API_KEY'))
+    elif provider_name == 'anthropic':
+        llm_configured = bool(os.environ.get('ANTHROPIC_API_KEY'))
+    else:
+        llm_configured = False
+
+    is_healthy = db_ok and index_status in ["ready", "empty"]
+
     return jsonify({
-        "status": "healthy" if db_ok else "unhealthy",
+        "status": "healthy" if is_healthy else "degraded",
         "database": "connected" if db_ok else "disconnected",
+        "index_status": index_status,
+        "index_chunk_count": index_chunk_count,
+        "index_version": index_version,
         "embedding_backend": os.environ.get('EMBEDDING_BACKEND', 'tfidf'),
-        "llm_provider": os.environ.get('LLM_PROVIDER', 'mock'),
+        "llm_provider": provider_name,
+        "llm_configured": llm_configured,
         "timestamp": datetime.now().isoformat()
-    })
+    }), (200 if is_healthy else 503)
 
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'

@@ -166,7 +166,7 @@
           </td>
           <td>{{ d.chunk_count or 0 }}</td>
           <td>
-            <span class="badge {% if d.status=='active' %}badge-success{% elif d.status=='processing' %}badge-info{% elif d.status=='needs_ocr' %}badge-warning{% else %}badge-secondary{% endif %}">
+            <span class="badge {% if d.status=='active' %}badge-success{% elif d.status in ['processing', 'queued'] %}badge-info{% elif d.status=='failed' %}badge-danger{% elif d.status=='needs_ocr' %}badge-warning{% else %}badge-secondary{% endif %}">
               {{ d.status }}
             </span>
           </td>

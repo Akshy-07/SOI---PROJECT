@@ -118,6 +118,61 @@ class IngestionPipeline:
         )
         logger.info(f"Rebuilt index with {len(all_chunks)} chunks across {len(doc_ids)} active documents.")
 
+        # Invalidate stale answer_cache entries (Phase 5)
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cur = conn.cursor()
+            new_idx_ver = self.vector_index.get_index_version()
+            cur.execute("DELETE FROM answer_cache WHERE index_version != ?", (new_idx_ver,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not invalidate answer_cache during index rebuild: {e}")
+
+    def _process_ingestion(self, new_doc_id: int, saved_path: str, clean_ext: str, supersedes_id: Optional[int]):
+        """Background worker executing page extraction, OCR checks, and atomic index rebuild."""
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        try:
+            # 1. Transition queued -> processing
+            cur.execute("UPDATE kb_documents SET status = 'processing' WHERE id = ?", (new_doc_id,))
+            conn.commit()
+
+            # 2. Extract pages
+            pages = load_document(saved_path, clean_ext)
+            if not pages:
+                cur.execute("UPDATE kb_documents SET status = 'failed' WHERE id = ?", (new_doc_id,))
+                conn.commit()
+                conn.close()
+                logger.error(f"Extraction failed for doc #{new_doc_id}: no readable text extracted.")
+                return
+
+            initial_status = "active"
+            if pages and pages[0].get("needs_ocr"):
+                initial_status = "needs_ocr"
+
+            # 3. Deactivate superseded document if specified
+            if supersedes_id:
+                cur.execute("UPDATE kb_documents SET status = 'inactive' WHERE id = ?", (supersedes_id,))
+
+            cur.execute("UPDATE kb_documents SET status = ? WHERE id = ?", (initial_status, new_doc_id))
+            conn.commit()
+            conn.close()
+
+            # 4. Rebuild vector index atomically if active
+            if initial_status == "active":
+                self.rebuild_index()
+            logger.info(f"Ingestion succeeded for doc #{new_doc_id} with status '{initial_status}'.")
+
+        except Exception as e:
+            logger.error(f"Ingestion processing error for doc #{new_doc_id}: {e}")
+            try:
+                cur.execute("UPDATE kb_documents SET status = 'failed' WHERE id = ?", (new_doc_id,))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+
     def ingest_document(
         self,
         filename: str,
@@ -127,16 +182,16 @@ class IngestionPipeline:
         effective_from: Optional[str] = None,
         effective_until: Optional[str] = None,
         supersedes_id: Optional[int] = None,
-        storage_dir: str = None
+        storage_dir: str = None,
+        async_mode: bool = False
     ) -> Tuple[bool, str, Optional[int]]:
         """
         Ingest a document into SQLite and the vector index:
         1. Validate file format and size.
         2. Deduplicate by SHA-256 file_hash.
         3. Save file using UUID name in uploads folder.
-        4. Insert into kb_documents table.
-        5. Automatically deactivate superseded document if supersedes_id provided.
-        6. Rebuild vector index atomically.
+        4. Insert into kb_documents table with initial status ('queued' if async, 'active' if sync).
+        5. In async mode, dispatch to background thread (queued -> processing -> active/failed).
         """
         valid, msg = validate_file(filename, file_bytes)
         if not valid:
@@ -167,17 +222,8 @@ class IngestionPipeline:
         with open(saved_path, "wb") as f:
             f.write(file_bytes)
 
-        # Scanned PDF check for initial status
-        pages = load_document(saved_path, clean_ext)
-        initial_status = "active"
-        if pages and pages[0].get("needs_ocr"):
-            initial_status = "needs_ocr"
-
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Deactivate superseded document if specified
-        if supersedes_id:
-            cur.execute("UPDATE kb_documents SET status = 'inactive' WHERE id = ?", (supersedes_id,))
+        initial_status = "queued" if async_mode else "active"
 
         cur.execute("""
             INSERT INTO kb_documents (
@@ -193,8 +239,16 @@ class IngestionPipeline:
         conn.commit()
         conn.close()
 
-        # If document is active, rebuild index
-        if initial_status == "active":
-            self.rebuild_index()
-
-        return True, "Uploaded and indexed successfully.", new_doc_id
+        if async_mode:
+            import threading
+            worker_thread = threading.Thread(
+                target=self._process_ingestion,
+                args=(new_doc_id, saved_path, clean_ext, supersedes_id),
+                daemon=True
+            )
+            worker_thread.start()
+            return True, "Document uploaded and queued for background ingestion.", new_doc_id
+        else:
+            # Synchronous processing
+            self._process_ingestion(new_doc_id, saved_path, clean_ext, supersedes_id)
+            return True, "Uploaded and indexed successfully.", new_doc_id

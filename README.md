@@ -10,6 +10,11 @@ The assistant uses a 3-way hybrid architecture:
 2. **Policy Queries (Grounded RAG)**: College regulations, library policies, and scholarship criteria are answered from retrieved, verified, date-valid document chunks with transparent source citations (document name and page number).
 3. **Hybrid Eligibility Queries**: Queries like *"Am I eligible to write the semester exam?"* retrieve the student's deterministic attendance from SQLite and college regulations from RAG side-by-side, executing a deterministic rule engine (e.g. `min_attendance_percent = 75`) to avoid hallucinations.
 4. **Staff Escalation & FAQ Closed Loop**: When confidence is low or information is unavailable, students can escalate unresolved queries to faculty with 1 click. When staff resolve the query, it can be approved by an administrator to instantly become a trusted Knowledge Base FAQ.
+5. **Answer Caching (Phase 5)**: High-confidence general RAG answers are normalized, hashed, and cached against the active `index_version`. Personal and hybrid responses are strictly excluded from the cache.
+6. **Session-Scoped Follow-Up Rewriting (Phase 6)**: Elliptical follow-up queries (e.g. "and for semester 2?") are rewritten into standalone queries across the user's last 3 session turns using deterministic rules and optional LLM rewriting without leaking private student data.
+7. **Background Document Ingestion (Phase 9)**: Uploads return immediately while processing runs in background threads (`queued` -> `processing` -> `active`/`failed`), preserving active index consistency during indexing.
+8. **Evaluation Regression Gate (Phase 10)**: Automated test ensures key benchmark metrics (routing accuracy and refusal recall) never regress below baseline minus allowable tolerance.
+9. **Observability & Diagnostics (Phase 7 & 11)**: Request UUID tracing, latency breakdown (retrieval vs. generation), structured JSON logs, and `/healthz` diagnostics reporting index and provider health without leaking credentials.
 
 ---
 
@@ -71,7 +76,7 @@ Open your browser at **http://localhost:5000**.
 ## 4. Running with Docker
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 The application will be live at `http://localhost:5000`. Volumes persist `database.db`, `rag_index/`, and uploaded files.
 
@@ -107,17 +112,36 @@ EMBEDDING_BACKEND=auto
 
 ## 6. Running Tests & Evaluation
 
-### Run Test Suite (38 Tests)
+### Run Test Suite (55 Tests)
 ```bash
-python -m pytest tests/ -v
+pytest -q
+# or
+python -m pytest -q
 ```
-All suites cover regression, role matrix, session scoping, injection resistance, document management, and RAG freshness.
+All 55 tests run against isolated temporary test databases (never touching production `database.db`), covering:
+- ERP regression (10 tests)
+- Intent router (4 tests)
+- Personal data scoping & IDOR prevention (3 tests)
+- RAG loading, chunking, search (3 tests)
+- Manifest & index consistency (3 tests)
+- Document freshness & date filters (3 tests)
+- Document management (3 tests)
+- Escalation & FAQ feedback loop (3 tests)
+- Security & injection resistance (3 tests)
+- Error handlers & HTTP contracts (3 tests)
+- Section 4.1 Chat response contract (3 tests)
+- Answer caching & invalidation (3 tests)
+- Session follow-up rewriting (6 tests)
+- Audit data minimization (2 tests)
+- Background ingestion & fault tolerance (2 tests)
+- Evaluation regression gate (2 tests)
+- Health check contract (1 test)
 
 ### Run Benchmark Evaluation Pipeline
 ```bash
 python eval/run_eval.py
 ```
-Outputs measured accuracy, recall, refusal rates, and latency figures saved into `eval/results.json` and `eval/REPORT.md`.
+Outputs measured accuracy, recall, refusal rates, and latency figures saved into `eval/results.json`, `eval/REPORT.md`, and `eval/calibration.md`.
 
 ---
 

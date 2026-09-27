@@ -66,11 +66,12 @@ class RAGHandler:
         """
         Handle RAG query with document freshness filtering, hybrid retrieval, and grounded generation.
         """
-        if self.index.check_and_reload():
-            if os.path.exists(self.index.vectorizer_path):
+        self.index.check_and_reload()
+        if os.path.exists(self.index.vectorizer_path):
+            vec_mtime = os.path.getmtime(self.index.vectorizer_path)
+            if getattr(self, '_vec_mtime', 0.0) != vec_mtime or self.embedding_engine.tfidf_vectorizer is None:
                 self.embedding_engine.load_tfidf(self.index.vectorizer_path)
-        elif self.embedding_engine.tfidf_vectorizer is None and os.path.exists(self.index.vectorizer_path):
-            self.embedding_engine.load_tfidf(self.index.vectorizer_path)
+                self._vec_mtime = vec_mtime
         clean_query = sanitize_chat_input(query)
         if not clean_query:
             return {
@@ -81,11 +82,19 @@ class RAGHandler:
                 "generation_status": "empty_input"
             }
 
+        import time
         active_ids = get_active_document_ids(self.db_path)
         top_k = int(os.environ.get("RAG_TOP_K", 5))
 
+        t_ret_start = time.time()
         chunks = self.retriever.retrieve(clean_query, top_k=top_k, active_doc_ids=active_ids)
-        backend = self.embedding_engine.backend
+        retrieval_ms = int((time.time() - t_ret_start) * 1000)
 
+        backend = self.embedding_engine.backend
+        t_gen_start = time.time()
         result = generate_grounded_answer(clean_query, chunks, backend=backend)
+        generation_ms = int((time.time() - t_gen_start) * 1000)
+
+        result["retrieval_ms"] = retrieval_ms
+        result["generation_ms"] = generation_ms
         return result

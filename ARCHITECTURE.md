@@ -81,3 +81,18 @@ This document describes the design, components, data flows, and security boundar
 - **Escalation**: Unanswered queries can be submitted to staff using the request ID.
 - **Resolution**: Faculty resolve questions via the staff queue and can flag helpful answers for FAQ promotion.
 - **Promotion**: Administrators approve FAQ drafts, which automatically generates a new knowledge base document, re-indexes the corpus, and immediately answers future occurrences of that question with official FAQ citations.
+
+### 2.5 Answer Caching Architecture (Phase 5)
+- **Scope**: Applied exclusively to general RAG questions. Personal answers and hybrid answers are strictly excluded to protect student privacy.
+- **Validation**: Questions are normalized (lowercased, stripped of punctuation, whitespace-collapsed) and hashed via SHA-256 (`question_norm_hash`).
+- **Cache Invalidation**: Entries are tied to the active `index_version`. Whenever documents are added, toggled, deleted, or re-indexed, stale entries are pruned.
+
+### 2.6 Session-Scoped Follow-Up Rewriting (Phase 6)
+- **Turn Tracking**: Maintains up to 3 previous turns strictly within the authenticated user's session cookie.
+- **Rewriting Ladder**: Elliptical queries (e.g. "and for semester 2?") are rewritten to standalone queries via deterministic antecedent merging before routing or retrieval.
+- **Privacy Boundary**: If an external LLM is configured for rewriting, only previous user question strings are supplied. Personal records or grades never enter rewrite prompts.
+
+### 2.7 Asynchronous Document Ingestion & Fault Isolation (Phase 9)
+- **Non-blocking Upload**: Admins receive an immediate response; document status is set to `queued`.
+- **State Progression**: Background worker transitions jobs through `queued` -> `processing` -> `active` (or `failed`).
+- **Atomic Safety**: Search queries continue reading the active vector index while the new index is built. New index files are written to temporary paths and swapped atomically via `os.replace` under `FileLock`. Faulty documents transition to `failed` without corrupting the operational index.

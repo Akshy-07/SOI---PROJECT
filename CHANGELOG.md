@@ -4,6 +4,15 @@ All notable changes and architectural evolutions made to the Smart College Assis
 
 ---
 
+## [Milestone M10] - Gaps Remediation, Caching, Follow-Ups & Final Hardening
+- **Answer Caching (Phase 5)**: Implemented runtime `answer_cache` in `ResponseComposer` with question normalization, SHA-256 hashing, index-version tracking, and automatic invalidation upon corpus modification. Personal and hybrid responses are strictly excluded.
+- **Follow-Up Rewriting (Phase 6)**: Added session-scoped follow-up resolution (`chatbot/followup.py`) keeping the last 3 turns, deterministic antecedent merging, and safe LLM fallback without personal data leakage.
+- **Audit Data Minimization (Phase 8)**: Refactored `chatbot/audit.py` to record only safe enum tokens (`PERSONAL_ATTENDANCE_QUERY`, etc.) with zero personal values or question snippets.
+- **Asynchronous Ingestion (Phase 9)**: Added background document ingestion worker with state tracking (`queued` -> `processing` -> `active`/`failed`), preserving active vector index integrity on failures.
+- **Evaluation Honesty & Regression Gate (Phase 3, 4, 10)**: Replaced hardcoded passes with dynamic evaluation status labeling (`BELOW TARGET`), fixed inverted calibration thresholds, and added an automated regression gate (`tests/test_eval_gate.py`).
+- **Observability & Diagnostics (Phase 7, 11)**: Added retrieval/generation latency breakdown, structured JSON logging, and comprehensive `/healthz` diagnostics.
+- **Test Suite Expansion**: Grew test coverage from 38 to 55 tests passing green (100% pass rate).
+
 ## [Milestone M9] - Packaging, Deployment & Hackathon Deliverables
 - Added `Dockerfile` with slim Python 3.11, non-root user, and Gunicorn WSGI server.
 - Added `docker-compose.yml` configured with volume persistence for `database.db`, `rag_index/`, and uploads.

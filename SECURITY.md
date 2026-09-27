@@ -26,7 +26,7 @@ A student attempts to view another student's attendance percentage, internal mar
 ### Technical Mitigations
 1. **Session-Only Identity (Rule 5)**: All database queries for personal records strictly query by `session['student_id']` or `session['reg']`. Any `student_id`, `reg_no`, or role sent in JSON payloads or GET query parameters is completely ignored.
 2. **Cross-Student Probe Detection (`chatbot/router.py`)**: The router detects register number patterns or phrases like *"marks of Rahul"* or *"attendance of 711724UEC102"*. If the targeted register number does not match the active session, the request is flagged as `cross_student_access` and blocked.
-3. **Data Minimisation in Audit Logs (`chatbot/audit.py`)**: For personal queries, audit logs record only the fact that a query type was asked (e.g., `[PERSONAL_DATA_QUERY: attendance]`), and **never** the student's actual grades, percentages, or fee amounts.
+3. **Strict Data Minimisation in Audit Logs (`chatbot/audit.py`)**: For personal queries, neither full question strings nor partial snippets (no first 30 chars) are stored. Only safe enum tokens (`PERSONAL_ATTENDANCE_QUERY`, `PERSONAL_MARKS_QUERY`, `PERSONAL_FEES_QUERY`, `PERSONAL_TIMETABLE_QUERY`, `PERSONAL_LEAVE_QUERY`) are recorded. Answers are recorded as `[PERSONAL_DATA_SERVED_FROM_DB_DETERMINISTICALLY]`, completely excluding student grades, percentages, or fee amounts. Hybrid answers are also scrubbed to prevent numerical leakage.
 
 ---
 

@@ -70,13 +70,19 @@ class VectorIndex:
             with open(temp_chunks, "wb") as f:
                 pickle.dump(self.chunks, f)
 
+            now_iso = datetime.now().isoformat()
+            doc_ids_sorted = sorted(list(set(doc_ids)))
+            import hashlib
+            version_hash = hashlib.sha256(f"{backend}_{now_iso}_{len(self.chunks)}_{doc_ids_sorted}".encode('utf-8')).hexdigest()[:16]
+
             manifest_data = {
                 "backend": backend,
                 "model_name": model_name,
                 "dim": int(self.vectors.shape[1]) if len(self.vectors.shape) > 1 else 0,
-                "built_at": datetime.now().isoformat(),
+                "built_at": now_iso,
+                "index_version": version_hash,
                 "chunk_count": len(self.chunks),
-                "doc_ids": list(set(doc_ids))
+                "doc_ids": doc_ids_sorted
             }
             with open(temp_manifest, "w", encoding="utf-8") as f:
                 json.dump(manifest_data, f, indent=2)
@@ -88,7 +94,12 @@ class VectorIndex:
             self.manifest = manifest_data
             if os.path.exists(self.manifest_path):
                 self._last_mtime = os.path.getmtime(self.manifest_path)
-            logger.info(f"Vector index saved atomically with {len(self.chunks)} chunks.")
+            logger.info(f"Vector index saved atomically with {len(self.chunks)} chunks (ver: {version_hash}).")
+
+    def get_index_version(self) -> str:
+        """Get the current index version hash, reloading if modified on disk."""
+        self.check_and_reload()
+        return self.manifest.get("index_version") or self.manifest.get("built_at") or "v1.0"
 
     def search(self, query_vec: np.ndarray, top_k: int = 5, active_doc_ids: List[int] = None) -> List[Tuple[Dict[str, Any], float]]:
         """

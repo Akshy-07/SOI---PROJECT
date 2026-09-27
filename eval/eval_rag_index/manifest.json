@@ -2,7 +2,8 @@
   "backend": "tfidf",
   "model_name": "all-MiniLM-L6-v2",
   "dim": 732,
-  "built_at": "2026-09-26T22:51:34.947758",
+  "built_at": "2026-09-27T15:54:15.407550",
+  "index_version": "deba9f74fe260304",
   "chunk_count": 36,
   "doc_ids": [
     1,

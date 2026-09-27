@@ -17,13 +17,14 @@ Your instructions:
 def compute_confidence(scores: List[float], backend: str = "tfidf") -> str:
     """
     Compute confidence score based on top score, gap, and count exceeding minimum.
-    Thresholds are backend-specific (Fix F3).
+    Thresholds are backend-specific (Fix F3). Enforces MIN <= MED <= HIGH ordering.
     """
     if not scores:
         return "none"
 
-    top1 = scores[0]
-    top2 = scores[1] if len(scores) > 1 else 0.0
+    sorted_scores = sorted(scores, reverse=True)
+    top1 = sorted_scores[0]
+    top2 = sorted_scores[1] if len(sorted_scores) > 1 else 0.0
     gap = top1 - top2
 
     backend_clean = backend.lower()
@@ -32,21 +33,28 @@ def compute_confidence(scores: List[float], backend: str = "tfidf") -> str:
         med_thresh = float(os.environ.get("CONF_MED_ST", 0.45))
         high_thresh = float(os.environ.get("CONF_HIGH_ST", 0.60))
     else:
-        min_thresh = float(os.environ.get("CONF_MIN_TFIDF", 0.10))
-        med_thresh = float(os.environ.get("CONF_MED_TFIDF", 0.20))
-        high_thresh = float(os.environ.get("CONF_HIGH_TFIDF", 0.35))
+        min_thresh = float(os.environ.get("CONF_MIN_TFIDF", 0.04))
+        med_thresh = float(os.environ.get("CONF_MED_TFIDF", 0.08))
+        high_thresh = float(os.environ.get("CONF_HIGH_TFIDF", 0.15))
+
+    # Guarantee logical ordering MIN <= MED <= HIGH
+    if not (min_thresh <= med_thresh <= high_thresh):
+        ordered = sorted([min_thresh, med_thresh, high_thresh])
+        min_thresh, med_thresh, high_thresh = ordered[0], ordered[1], ordered[2]
 
     if top1 < min_thresh:
         return "none"
 
-    chunks_over_min = sum(1 for s in scores if s >= min_thresh)
+    chunks_over_min = sum(1 for s in sorted_scores if s >= min_thresh)
 
-    if top1 >= high_thresh and (gap > 0.05 or chunks_over_min >= 2):
+    if top1 >= high_thresh and (gap >= 0.02 or chunks_over_min >= 2):
         return "high"
-    elif top1 >= med_thresh:
+    elif top1 >= med_thresh and (gap >= 0.01 or chunks_over_min >= 1):
         return "medium"
-    else:
+    elif top1 >= min_thresh:
         return "low"
+    else:
+        return "none"
 
 def generate_grounded_answer(question: str, retrieved_chunks: List[Dict[str, Any]], backend: str = "tfidf") -> Dict[str, Any]:
     """

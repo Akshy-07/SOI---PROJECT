@@ -9,6 +9,8 @@ os.environ['SECRET_KEY'] = 'test-secret-key-123456789'
 os.environ['LLM_PROVIDER'] = 'mock'
 os.environ['EMBEDDING_BACKEND'] = 'tfidf'
 os.environ['FLASK_DEBUG'] = '0'
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import app as app_module
 from init_db import init_database
